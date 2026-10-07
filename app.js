@@ -51,7 +51,7 @@ function select(s) {
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
   ].map(([label, key, max, min]) => `<div class="row"><label>${label}</label>${range(key, max, min, p[key])}</div>`).join('');
   $('detail').innerHTML = `
-    <h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small>
+    <div class="banner"><img src="${s.art}" alt=""><div><h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div></div>
     <h3>Skills</h3>${sk}
     <h3>Class passives</h3>${pas}
     <h3>Append skills</h3>${app}

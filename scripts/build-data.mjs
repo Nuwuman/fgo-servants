@@ -68,6 +68,7 @@ const servants = raw
     cls: s.className,
     rarity: s.rarity,
     face: s.extraAssets?.faces?.ascension?.['1'] ?? s.extraAssets?.faces?.ascension?.['0'],
+    art: s.extraAssets?.charaGraph?.ascension?.['1'],
     skills: latest(s.skills, skillOf),
     passives: s.classPassive.map(skillOf),
     ap: s.appendPassive.map((p) => appendRef(p.skill)),
