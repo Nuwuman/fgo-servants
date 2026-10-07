@@ -17,7 +17,7 @@ const renderList = () => {
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
-      li.innerHTML = `<span class="ic t${tier(s)}"><img loading="lazy" src="${s.face}" alt=""><img class="cls" loading="lazy" src="${clsIcon(s)}" alt=""></span><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
+      li.innerHTML = `<span class="ic t${tier(s)}"><img loading="lazy" src="${s.face}" alt=""><img class="cls" loading="lazy" src="${clsIcon(s)}" alt=""></span><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)}</small></div>`;
       li.onclick = () => select(s);
       return li;
     }));
