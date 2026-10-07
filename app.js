@@ -13,7 +13,7 @@ const renderList = () => {
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
-      li.innerHTML = `<img loading="lazy" src="${s.face}" alt=""><div>${s.name}<small>${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
+      li.innerHTML = `<img loading="lazy" src="${s.face}" alt=""><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
       li.onclick = () => select(s);
       return li;
     }));
