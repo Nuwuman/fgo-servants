@@ -110,7 +110,7 @@ function update(s, p) {
   sum(s.append, p.ap[0], p.ap[1], 1, p.ap[2], acc);
   const cells = Object.entries(acc.i).sort((a, b) => b[1] - a[1])
     .map(([id, n]) => `<div><img src="${items[id].icon}" alt=""><span>${items[id].name} ×${fmt(n)}</span></div>`);
-  if (acc.qp) cells.unshift(`<div><b>QP</b> ${fmt(acc.qp)}</div>`);
+  if (acc.qp) cells.unshift(`<div><img src="https://static.atlasacademy.io/JP/Items/5.png" alt=""><span>QP ×${fmt(acc.qp)}</span></div>`);
   $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
 }
 
