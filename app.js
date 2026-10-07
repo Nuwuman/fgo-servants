@@ -1,0 +1,69 @@
+const { items, servants } = await (await fetch('data/servants.json')).json();
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => n.toLocaleString('en');
+const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
+
+$('cls').append(...[...new Set(servants.map((s) => s.cls))].sort().map((c) => new Option(c, c)));
+
+const renderList = () => {
+  const q = $('q').value.toLowerCase(), c = $('cls').value;
+  $('list').replaceChildren(...servants
+    .filter((s) => (!c || s.cls === c) && s.name.toLowerCase().includes(q))
+    .map((s) => {
+      const li = document.createElement('li');
+      li.dataset.id = s.id;
+      li.innerHTML = `<img loading="lazy" src="${s.face}" alt=""><div>${s.name}<small>${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
+      li.onclick = () => select(s);
+      return li;
+    }));
+};
+
+// Suma los pasos steps[from-base .. to-base-1] (from/to = niveles/etapas objetivo).
+const sum = (steps, from, to, base, mult = 1, acc = { qp: 0, i: {} }) => {
+  for (const st of steps.slice(from - base, to - base)) {
+    acc.qp += st.qp * mult;
+    for (const [id, n] of st.i) acc.i[id] = (acc.i[id] ?? 0) + n * mult;
+  }
+  return acc;
+};
+
+const range = (name, max, min, [a, b]) => {
+  const opt = (v) => Array.from({ length: max - min + 1 }, (_, k) => min + k)
+    .map((n) => `<option ${n === v ? 'selected' : ''}>${n}</option>`).join('');
+  return `<select data-k="${name}" data-p="0">${opt(a)}</select> → <select data-k="${name}" data-p="1">${opt(b)}</select>`;
+};
+
+function select(s) {
+  document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
+  const p = plan[s.id] ??= { asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
+  const sk = s.skills.map((k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b><p>${k.detail}</p></div></div>`).join('');
+  const rows = [
+    ['Ascension', 'asc', 4, 0],
+    ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
+  ].map(([label, key, max, min]) => `<div class="row"><label>${label}</label>${range(key, max, min, p[key])}</div>`).join('');
+  $('detail').innerHTML = `
+    <h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small>
+    <h3>Skills</h3>${sk}
+    <h3>Upgrade range</h3>${rows}
+    <div class="row"><label>Append skills</label>${range('ap', 10, 1, p.ap)} × <input data-k="ap" data-p="2" type="number" min="0" max="5" value="${p.ap[2]}" style="width:3.5rem"></div>
+    <h3>Total materials</h3><div id="total" class="total"></div>`;
+  $('detail').onchange = (e) => {
+    const { k, p: i } = e.target.dataset;
+    if (k) { p[k][i] = +e.target.value; if (i < 2 && p[k][0] > p[k][1]) p[k][1 - i] = +e.target.value; update(s, p); if (i < 2) select(s); }
+  };
+  update(s, p);
+}
+
+function update(s, p) {
+  const acc = { qp: 0, i: {} };
+  sum(s.asc, p.asc[0], p.asc[1], 0, 1, acc);
+  s.skills.forEach((_, n) => sum(s.skill, p[`s${n}`][0], p[`s${n}`][1], 1, 1, acc));
+  sum(s.append, p.ap[0], p.ap[1], 1, p.ap[2], acc);
+  const cells = Object.entries(acc.i).sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => `<div><img src="${items[id].icon}" alt=""><span>${items[id].name} ×${fmt(n)}</span></div>`);
+  if (acc.qp) cells.unshift(`<div><b>QP</b> ${fmt(acc.qp)}</div>`);
+  $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
+}
+
+$('q').oninput = $('cls').onchange = renderList;
+renderList();
