@@ -15,8 +15,14 @@ main { display:grid; grid-template-columns:minmax(220px,300px) 1fr; height:calc(
 .hint, small { color:var(--mut); }
 h2 { margin:.25rem 0; } h3 { margin:1.25rem 0 .4rem; font-size:1rem; }
 .skill { display:flex; gap:.6rem; margin:.4rem 0; } .skill img { width:40px; height:40px; }
-.skill p { margin:0; color:var(--mut); font-size:.85rem; }
+
 .row { display:flex; gap:.5rem; align-items:center; margin:.35rem 0; } .row label { width:9rem; }
 .total { display:flex; flex-wrap:wrap; gap:.5rem; } .total div { display:flex; align-items:center; gap:.3rem; border:1px solid var(--line); border-radius:6px; padding:.2rem .5rem; }
 .total img { width:28px; height:28px; }
 @media (max-width:700px) { main { grid-template-columns:1fr; height:auto; } #list { max-height:35vh; border-right:0; border-bottom:1px solid var(--line); } }
+.skill > div { min-width:0; flex:1; }
+.scroll { overflow-x:auto; margin-top:.3rem; }
+table { border-collapse:collapse; font-size:.82rem; white-space:nowrap; }
+th, td { padding:.15rem .5rem; border-bottom:1px solid var(--line); text-align:right; }
+th:first-child, td:first-child { text-align:left; } td.c { text-align:center; }
+thead th { color:var(--mut); font-weight:500; }

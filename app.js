@@ -7,7 +7,8 @@ $('cls').append(...[...new Set(servants.map((s) => s.cls))].sort().map((c) => ne
 
 const renderList = () => {
   const q = $('q').value.toLowerCase(), c = $('cls').value;
-  $('list').replaceChildren(...servants
+  const dir = $('sort').value === 'new' ? -1 : 1;
+  $('list').replaceChildren(...servants.toSorted((a, b) => dir * (a.no - b.no))
     .filter((s) => (!c || s.cls === c) && s.name.toLowerCase().includes(q))
     .map((s) => {
       const li = document.createElement('li');
@@ -36,7 +37,12 @@ const range = (name, max, min, [a, b]) => {
 function select(s) {
   document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
   const p = plan[s.id] ??= { asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
-  const sk = s.skills.map((k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b><p>${k.detail}</p></div></div>`).join('');
+  const lv = Array.from({ length: 10 }, (_, n) => `<th>${n + 1}</th>`).join('');
+  const fx = (e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
+    ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="10" class="c">${e.v[0]}</td>`}</tr>`;
+  const sk = s.skills.map((k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b>
+    <small> · CD ${k.cd[0]}${k.cd[9] !== k.cd[0] ? '→' + k.cd[9] : ''}</small>
+    <div class="scroll"><table><thead><tr><th>Level</th>${lv}</tr></thead><tbody>${k.fx.map(fx).join('')}</tbody></table></div></div></div>`).join('');
   const rows = [
     ['Ascension', 'asc', 4, 0],
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
@@ -65,5 +71,5 @@ function update(s, p) {
   $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
 }
 
-$('q').oninput = $('cls').onchange = renderList;
+$('q').oninput = $('cls').onchange = $('sort').onchange = renderList;
 renderList();

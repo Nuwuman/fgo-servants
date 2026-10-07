@@ -13,6 +13,37 @@ const steps = (m = {}) => Object.keys(m).sort((a, b) => a - b).map((k) => {
   return { i: m[k].items.map(({ item, amount }) => [item.id, amount]), qp: m[k].qp };
 });
 
+const TARGET = { self: 'Self', ptOne: '1 ally', ptAll: 'Party', ptFull: 'Party (all)', ptOther: 'Other allies',
+  ptOtherFull: 'Other allies (all)', ptOneOther: '1 other ally', ptRandom: 'Random ally', enemy: '1 enemy',
+  enemyAll: 'All enemies', commandTypeSelfTreasureDevice: 'Self', fieldOther: 'Field' };
+const LABEL = { gainNp: 'NP Charge', gainStar: 'Gain Critical Stars', gainHp: 'Restore HP', hastenNpturn: 'Charge Increase',
+  delayNpturn: 'Charge Decrease', lossNp: 'NP Reduction', lossHpSafe: 'HP Reduction', lossStar: 'Critical Stars Reduction',
+  subState: 'Remove Effects', shortenSkill: 'Skill Cooldown Reduction', cardReset: 'Reset Command Cards',
+  gainNpFromTargets: 'NP Drain', gainNpIndividualSum: 'NP Charge', gainNpBuffIndividualSum: 'NP Charge',
+  gainNpTargetSum: 'NP Charge', gainMultiplyNp: 'NP Multiply', absorbNpturn: 'Charge Drain', moveState: 'Effect Transfer' };
+const SKIP = /^(eventDropUp|eventPointUp|servantFriendshipUp|none|displayBuffstring|transformServant)/;
+const FLAT = new Set(['guts', 'regainStar', 'regainHp', 'upChagetd', 'addMaxhp', 'subSelfdamage', 'reduceHp', 'upFuncHpReduce', 'addIndividuality', 'fieldIndividuality']);
+const NO_VALUE = new Set(['hastenNpturn', 'delayNpturn', 'shortenSkill', 'gainStar', 'gainHp', 'lossHpSafe', 'lossStar', 'cardReset']);
+const JP = /[぀-ヿ一-鿿]/;
+const num = (x) => String(Math.round(x * 10) / 10);
+
+// Un efecto de skill -> { tg, n, t, v: [valor por nivel] } (v colapsa a 1 si es constante).
+const effect = (f) => {
+  const b = f.buffs?.[0];
+  let n = b?.name || LABEL[f.funcType] || (JP.test(f.funcPopupText) ? '' : f.funcPopupText);
+  if (!n || JP.test(n)) n = b?.type?.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()) ?? f.funcType;
+  const hundred = ['gainNp', 'lossNp', 'gainMultiplyNp'].includes(f.funcType) || b?.type === 'regainNp';
+  const val = (sv) => {
+    if (sv.Value == null || /Function|CardType/.test(b?.type ?? '')) return '';
+    if (b ? FLAT.has(b.type) : NO_VALUE.has(f.funcType)) return num(sv.Value);
+    return num(hundred ? sv.Value / 100 : sv.Value / 10) + '%';
+  };
+  const tag = (sv) => [sv.Turn > 0 && `${sv.Turn}T`, sv.Count > 0 && `${sv.Count}×`, sv.Rate < 1000 && `${num(sv.Rate / 10)}% chance`].filter(Boolean).join(', ');
+  const tags = f.svals.map(tag), same = tags.every((t) => t === tags[0]);
+  const v = f.svals.map((sv, i) => (val(sv) + (same || !tags[i] ? '' : ` (${tags[i]})`)).trim() || '—');
+  return { tg: TARGET[f.funcTargetType] ?? f.funcTargetType, n, t: same ? tags[0] : '', v: v.every((x) => x === v[0]) ? [v[0]] : v };
+};
+
 // De cada slot de skill, la versión más reciente (mayor priority).
 const latest = (list = [], pick) => Object.values(
   list.reduce((acc, s) => ((!acc[s.num] || acc[s.num].priority <= s.priority) && (acc[s.num] = s), acc), {})
@@ -27,7 +58,7 @@ const servants = raw
     cls: s.className,
     rarity: s.rarity,
     face: s.extraAssets?.faces?.ascension?.['1'] ?? s.extraAssets?.faces?.ascension?.['0'],
-    skills: latest(s.skills, (k) => ({ name: k.name, detail: k.detail, icon: k.icon })),
+    skills: latest(s.skills, (k) => ({ name: k.name, icon: k.icon, cd: k.coolDown, fx: k.functions.filter((f) => !SKIP.test(f.funcType) && f.svals?.length).map(effect) })),
     asc: steps(s.ascensionMaterials),
     skill: steps(s.skillMaterials),
     append: steps(s.appendSkillMaterials),
