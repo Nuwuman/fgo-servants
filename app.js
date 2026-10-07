@@ -1,4 +1,4 @@
-const { items, appendSkills, servants } = await (await fetch('data/servants.json')).json();
+const { items, appendSkills, expCurves, grail, servants } = await (await fetch('data/servants.json')).json();
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString('en');
 let mode = 'svt', ces; // ces se descarga al abrir la pestaña
@@ -11,11 +11,12 @@ const tier = (s) => (s.rarity <= 2 ? 1 : s.rarity === 3 ? 2 : 3);
 const clsIcon = (s) => `https://static.atlasacademy.io/JP/ClassIcons/class${tier(s)}_${s.cid === 38 ? 33 : s.cid}.png`;
 
 const renderList = () => {
-  const q = $('q').value.toLowerCase(), c = $('cls').value;
+  const q = $('q').value.toLowerCase(), c = $('cls').value, r = $('rar').value, cd = $('card').value;
   const dir = $('sort').value === 'new' ? -1 : 1;
   const svt = mode === 'svt';
   $('list').replaceChildren(...(svt ? servants : ces).toSorted((a, b) => dir * (a.no - b.no))
-    .filter((s) => (!svt || !c || s.cls === c) && s.name.toLowerCase().includes(q))
+    .filter((s) => (!svt || !c || s.cls === c) && (r === '' || s.rarity === +r) && (!svt || !cd || s.np?.card === cd)
+      && s.name.toLowerCase().includes(q))
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
@@ -29,7 +30,7 @@ document.querySelectorAll('nav button').forEach((btn) => {
   btn.onclick = async () => {
     mode = btn.dataset.m;
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b === btn));
-    $('cls').hidden = mode !== 'svt';
+    $('cls').hidden = $('card').hidden = mode !== 'svt';
     $('detail').innerHTML = '<p class="hint">Loading…</p>';
     if (mode === 'ce') ces ??= await (await fetch('data/ces.json')).json();
     $('detail').innerHTML = `<p class="hint">Pick a ${mode === 'svt' ? 'servant' : 'craft essence'}.</p>`;
@@ -69,7 +70,7 @@ const range = (name, max, min, [a, b]) => {
 
 function select(s) {
   document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
-  const p = plan[s.id] ??= { asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
+  const p = plan[s.id] ??= { lv: [1, 1], asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
   const tbl = (fxs, labels) => `<div class="scroll"><table><thead><tr><th>Level</th>${labels.map((l) => `<th>${l}</th>`).join('')}</tr></thead><tbody>${fxs.map((e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
     ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="${labels.length}" class="c">${e.v[0]}</td>`}</tr>`).join('')}</tbody></table></div>`;
   const levels = Array.from({ length: 10 }, (_, n) => n + 1);
@@ -83,11 +84,13 @@ function select(s) {
   const pas = s.passives.map(skill).join('');
   const app = s.ap.map((i) => skill(appendSkills[i])).join('');
   const rows = [
+    ['Level', 'lv', s.lvs.at(-1)[0], 1],
     ['Ascension', 'asc', 4, 0],
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
   ].map(([label, key, max, min]) => `<div class="row"><label>${label}</label>${range(key, max, min, p[key])}</div>`).join('');
   $('detail').innerHTML = `
     <div class="banner"><img src="${s.art}" alt=""><div><h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div></div>
+    <h3>Stats</h3><table><thead><tr><th>Level</th><th>ATK</th><th>HP</th></tr></thead><tbody>${s.lvs.map(([l, a, h]) => `<tr><td>${l}</td><td>${fmt(a)}</td><td>${fmt(h)}</td></tr>`).join('')}</tbody></table>
     <h3>Command cards</h3><div class="deck">${s.deck.map((c) => `<span>${c}</span>`).join('')}</div><small>Hits per card: ${hits}</small>
     <h3>Noble Phantasm</h3>${np ?? ''}
     <h3>Skills</h3>${sk}
@@ -108,11 +111,17 @@ function update(s, p) {
   sum(s.asc, p.asc[0], p.asc[1], 0, 1, acc);
   s.skills.forEach((_, n) => sum(s.skill, p[`s${n}`][0], p[`s${n}`][1], 1, 1, acc));
   sum(s.append, p.ap[0], p.ap[1], 1, p.ap[2], acc);
+  const curve = expCurves[s.exp], exp = curve[p.lv[1] - 1] - curve[p.lv[0] - 1];
+  // Gríales: los niveles por encima del máximo base necesitan k gríales (nivel máx. añadido acumulado).
+  const table = grail[s.rarity] ?? [], need = (lv) => (lv <= s.lvMax ? 0 : (table.findIndex(([, add]) => add >= lv - s.lvMax) + 1 || table.length));
+  const [gFrom, gTo] = [need(p.lv[0]), need(p.lv[1])], gQp = (n) => table.slice(0, n).reduce((a, [q]) => a + q, 0);
+  if (gTo > gFrom) { acc.qp += gQp(gTo) - gQp(gFrom); acc.i[7999] = gTo - gFrom; }
   const cells = Object.entries(acc.i).sort((a, b) => b[1] - a[1])
     .map(([id, n]) => `<div><img src="${items[id].icon}" alt=""><span>${items[id].name} ×${fmt(n)}</span></div>`);
+  if (exp) cells.unshift(`<div><span>EXP ×${fmt(exp)}</span></div>`);
   if (acc.qp) cells.unshift(`<div><img src="https://static.atlasacademy.io/JP/Items/5.png" alt=""><span>QP ×${fmt(acc.qp)}</span></div>`);
   $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
 }
 
-$('q').oninput = $('cls').onchange = $('sort').onchange = renderList;
+$('q').oninput = $('cls').onchange = $('rar').onchange = $('card').onchange = $('sort').onchange = renderList;
 renderList();

@@ -7,6 +7,19 @@ const PLAYABLE = new Set(['normal', 'heroine']);
 const raw = await (await fetch(URL)).json();
 const items = {};
 
+// Coste de gríal por rareza: [[qp, nivel máx. añadido acumulado], ...]. Atlas no lo publica; viene de los datos de Chaldea.
+const grailRaw = (await (await fetch('https://raw.githubusercontent.com/chaldea-center/chaldea-data/main/dist/constData.json')).json()).svtGrailCost;
+const grail = Object.fromEntries(Object.entries(grailRaw).map(([r, v]) => [r, Object.values(v).map((x) => [x.qp, x.addLvMax])]));
+const g = await (await fetch('https://api.atlasacademy.io/nice/JP/item/7999?lang=en')).json();
+items[g.id] = { name: g.name, icon: g.icon };
+
+// Curvas de EXP acumulada: se guardan una vez y cada servant lleva el índice.
+const expCurves = [];
+const curveRef = (c) => {
+  const i = expCurves.findIndex((x) => x.join() === c.join());
+  return i >= 0 ? i : expCurves.push(c) - 1;
+};
+
 // Pasos de materiales -> [{ i: [[itemId, cantidad]], qp }], indexados por nivel de origen.
 const steps = (m = {}) => Object.keys(m).sort((a, b) => a - b).map((k) => {
   for (const { item } of m[k].items) items[item.id] ??= { name: item.name, icon: item.icon };
@@ -75,13 +88,18 @@ const npOf = (list) => {
 
 const servants = raw
   .filter((s) => s.collectionNo > 0 && PLAYABLE.has(s.type))
-  .map((s) => ({
+  .map((s) => ({ s, lvMax: s.atkGrowth.indexOf(s.atkMax) + 1 })) // Mash: lvMax dice 80 pero su ATK máx. cae en el 70
+  .map(({ s, lvMax }) => ({
     id: s.id,
     no: s.collectionNo,
     name: s.name,
     cls: s.className,
     cid: s.classId,
     rarity: s.rarity,
+    lvMax,
+    lvs: [...new Set([1, lvMax, 100, s.atkGrowth.length])].filter((l) => l <= s.atkGrowth.length).sort((a, b) => a - b)
+      .map((l) => [l, s.atkGrowth[l - 1], s.hpGrowth[l - 1]]),
+    exp: curveRef(s.expGrowth),
     face: s.extraAssets?.faces?.ascension?.['1'] ?? s.extraAssets?.faces?.ascension?.['0'],
     art: s.extraAssets?.charaGraph?.ascension?.['1'],
     deck: s.cards.map((c) => CARD[c] ?? c),
@@ -96,7 +114,7 @@ const servants = raw
   }))
   .sort((a, b) => a.no - b.no);
 
-writeFileSync('data/servants.json', JSON.stringify({ items, appendSkills, servants }));
+writeFileSync('data/servants.json', JSON.stringify({ items, appendSkills, expCurves, grail, servants }));
 console.log(`${servants.length} servants, ${Object.keys(items).length} items, ${appendSkills.length} append variants`);
 
 // Craft Essences: cada skill con su versión base y la de límite máximo (si difieren).

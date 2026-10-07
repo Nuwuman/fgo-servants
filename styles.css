@@ -39,3 +39,6 @@ nav button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
 .deck { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.3rem; }
 .deck span { border:1px solid var(--line); border-radius:4px; padding:.15rem .6rem; }
 .ce-skill { margin:.5rem 0 1rem; } .ce-skill ul { margin:.1rem 0 .5rem; padding-left:1.2rem; }
+body { display:flex; flex-direction:column; height:100vh; }
+main { flex:1; min-height:0; height:auto; }
+@media (max-width:700px) { body { height:auto; } }
