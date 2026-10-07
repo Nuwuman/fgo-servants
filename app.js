@@ -2,7 +2,8 @@ const { items, appendSkills, expCurves, grail, servants } = await (await fetch('
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString('en');
 let mode = 'svt', ces, curId; // ces se descarga al abrir la pestaña; curId = elemento abierto
-const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
+const fresh = () => ({ lv: [1, 1], asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] });
+const plan = {}; // por servant.id: { lv:[a,b], asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
 
 // Todas las variantes de Beast (beastEresh, unBeastOlgaMarie…) entran en una sola categoría.
 const group = (c) => (/^(beast|unBeast)/.test(c) ? 'beast' : c);
@@ -20,13 +21,24 @@ const mark = (id) => {
   $('list').querySelector(`[data-id="${id}"]`)?.classList.add('on');
 };
 
+// Búsqueda por efecto: cada palabra debe aparecer en el nombre o el objetivo de un mismo efecto
+// (skills, pasivas y NP; las append skills son iguales para todos y solo meterían ruido).
+const effectText = new WeakMap();
+const effects = (s) => effectText.get(s) ?? (effectText.set(s, (s.sk
+  ? s.sk.flatMap((k) => [...k.base, ...(k.max ?? [])])
+  : [...s.skills, ...s.passives].flatMap((k) => k.fx).concat(s.np?.fx ?? [])).map((e) => `${e.n} ${e.tg}`.toLowerCase())), effectText.get(s));
+const fxNames = new Set(servants.flatMap((s) => [...s.skills, ...s.passives].flatMap((k) => k.fx).concat(s.np?.fx ?? []).map((e) => e.n)));
+const fillFx = () => { $('fxlist').replaceChildren(...[...fxNames].sort().map((n) => new Option(n))); };
+fillFx();
+
 const renderList = () => {
   const q = $('q').value.toLowerCase(), c = $('cls').value, r = $('rar').value, cd = $('card').value;
   const dir = $('sort').value === 'new' ? -1 : 1;
+  const words = $('fx').value.toLowerCase().split(/\s+/).filter(Boolean);
   const svt = mode === 'svt';
   $('list').replaceChildren(...(svt ? servants : ces).toSorted((a, b) => dir * (a.no - b.no))
     .filter((s) => (!svt || !c || group(s.cls) === c) && (r === '' || s.rarity === +r) && (!svt || !cd || s.np?.card === cd)
-      && s.name.toLowerCase().includes(q))
+      && s.name.toLowerCase().includes(q) && (!words.length || effects(s).some((t) => words.every((w) => t.includes(w)))))
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
@@ -46,28 +58,58 @@ const pick = (e) => {
 $('list').onclick = pick;
 $('list').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } };
 
-document.querySelectorAll('nav button').forEach((btn) => {
-  btn.onclick = async () => {
-    mode = btn.dataset.m;
-    curId = undefined;
-    document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b === btn));
-    $('cls').hidden = $('card').hidden = mode !== 'svt';
-    $('detail').innerHTML = '<p class="hint">Loading…</p>';
-    if (mode === 'ce') ces ??= await (await fetch('data/ces.json')).json();
-    $('detail').innerHTML = `<p class="hint">Pick a ${mode === 'svt' ? 'servant' : 'craft essence'}.</p>`;
-    renderList();
-  };
-});
+const setMode = async (m) => {
+  mode = m;
+  curId = undefined;
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+  $('cls').hidden = $('card').hidden = m !== 'svt';
+  $('detail').innerHTML = '<p class="hint">Loading…</p>';
+  if (m === 'ce' && !ces) {
+    ces = await (await fetch('data/ces.json')).json();
+    ces.forEach((e) => e.sk.forEach((k) => [...k.base, ...(k.max ?? [])].forEach((x) => fxNames.add(x.n))));
+    fillFx();
+  }
+  $('detail').innerHTML = `<p class="hint">Pick a ${m === 'svt' ? 'servant' : 'craft essence'}.</p>`;
+  renderList();
+};
+document.querySelectorAll('nav button').forEach((btn) => { btn.onclick = () => { history.replaceState(null, '', location.pathname); setMode(btn.dataset.m); }; });
+
+// Enlace compartible: #m=svt&id=100100&lv=1-90&s0=1-10 (solo lo que difiere del valor por defecto).
+const BOUNDS = { lv: [1, 120], asc: [0, 4], s0: [1, 10], s1: [1, 10], s2: [1, 10], ap: [1, 10] };
+const save = (s, p) => {
+  const h = new URLSearchParams({ m: mode, id: s.id });
+  if (p) for (const [k, v] of Object.entries(p)) if (v.join() !== fresh()[k].join()) h.set(k, v.join('-'));
+  history.replaceState(null, '', '#' + h);
+};
+const restore = async () => {
+  const h = new URLSearchParams(location.hash.slice(1)), m = h.get('m') === 'ce' ? 'ce' : 'svt';
+  if (!h.get('id')) return;
+  await setMode(m);
+  const s = rows().find((x) => x.id === +h.get('id'));
+  if (!s) return;
+  if (m === 'svt') {
+    const p = plan[s.id] = fresh(), clamp = (n, [lo, hi]) => Math.min(hi, Math.max(lo, n || lo));
+    for (const [k, b] of Object.entries(BOUNDS)) {
+      const v = (h.get(k) ?? '').split('-').map(Number);
+      if (v.length >= 2) p[k] = [clamp(v[0], b), clamp(v[1], b), ...(k === 'ap' ? [clamp(v[2] ?? 1, [0, 5])] : [])].slice(0, k === 'ap' ? 3 : 2);
+      if (p[k][0] > p[k][1]) p[k][1] = p[k][0];
+    }
+    select(s);
+  } else selectCe(s);
+  $('list').querySelector('.on')?.scrollIntoView({ block: 'center' });
+};
+window.onhashchange = restore;
 
 const fxLine = (e) => `<li>${e.n}: <b>${e.v.length > 1 ? e.v.join(' / ') : e.v[0]}</b><small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></li>`;
 function selectCe(e) {
   mark(e.id);
+  save(e);
   const sk = e.sk.map((k) => `<div class="ce-skill"><b>${k.name}</b>
     <div><small>${k.max ? 'Base' : 'Effect'}</small><ul>${k.base.map(fxLine).join('')}</ul></div>
     ${k.max ? `<div><small>Max limit break</small><ul>${k.max.map(fxLine).join('')}</ul></div>` : ''}</div>`).join('');
   $('detail').onchange = null;
   $('detail').innerHTML = `
-    <div class="banner"><img src="${e.art}" alt=""><div><h2>${e.name}</h2><small>No. ${e.no} · ${'★'.repeat(e.rarity)}</small></div></div>
+    <div class="banner"><img src="${e.art}" alt=""><div><h2>${e.name}</h2><small>No. ${e.no} · ${'★'.repeat(e.rarity)}</small></div><button class="copy" type="button">Copy link</button></div>
     <h3>Stats</h3><table><thead><tr><th></th><th>Base</th><th>Max</th></tr></thead><tbody>
       <tr><td>ATK</td><td>${fmt(e.atk[0])}</td><td>${fmt(e.atk[1])}</td></tr>
       <tr><td>HP</td><td>${fmt(e.hp[0])}</td><td>${fmt(e.hp[1])}</td></tr></tbody></table>
@@ -91,7 +133,7 @@ const range = (name, max, min, [a, b]) => {
 
 function select(s) {
   mark(s.id);
-  const p = plan[s.id] ??= { lv: [1, 1], asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
+  const p = plan[s.id] ??= fresh();
   const tbl = (fxs, labels) => `<div class="scroll"><table><thead><tr><th>Level</th>${labels.map((l) => `<th>${l}</th>`).join('')}</tr></thead><tbody>${fxs.map((e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
     ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="${labels.length}" class="c">${e.v[0]}</td>`}</tr>`).join('')}</tbody></table></div>`;
   const levels = Array.from({ length: 10 }, (_, n) => n + 1);
@@ -110,7 +152,7 @@ function select(s) {
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
   ].map(([label, key, max, min]) => `<div class="row"><label>${label}</label>${range(key, max, min, p[key])}</div>`).join('');
   $('detail').innerHTML = `
-    <div class="banner"><img src="${s.art}" alt=""><div><h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div></div>
+    <div class="banner"><img src="${s.art}" alt=""><div><h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div><button class="copy" type="button">Copy link</button></div>
     <h3>Stats</h3><table><thead><tr><th>Level</th><th>ATK</th><th>HP</th></tr></thead><tbody>${s.lvs.map(([l, a, h]) => `<tr><td>${l}</td><td>${fmt(a)}</td><td>${fmt(h)}</td></tr>`).join('')}</tbody></table>
     <h3>Command cards</h3><div class="deck">${s.deck.map((c) => `<span>${c}</span>`).join('')}</div><small>Hits per card: ${hits}</small>
     <h3>Noble Phantasm</h3>${np ?? ''}
@@ -128,6 +170,7 @@ function select(s) {
 }
 
 function update(s, p) {
+  save(s, p);
   const acc = { qp: 0, i: {} };
   sum(s.asc, p.asc[0], p.asc[1], 0, 1, acc);
   s.skills.forEach((_, n) => sum(s.skill, p[`s${n}`][0], p[`s${n}`][1], 1, 1, acc));
@@ -144,7 +187,15 @@ function update(s, p) {
   $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
 }
 
+$('detail').onclick = async (e) => {
+  if (!e.target.classList.contains('copy')) return;
+  await navigator.clipboard.writeText(location.href).catch(() => {});
+  e.target.textContent = 'Copied!';
+  setTimeout(() => { e.target.textContent = 'Copy link'; }, 1500);
+};
+
 let t;
-$('q').oninput = () => { clearTimeout(t); t = setTimeout(renderList, 120); };
+$('q').oninput = $('fx').oninput = () => { clearTimeout(t); t = setTimeout(renderList, 120); };
 $('cls').onchange = $('rar').onchange = $('card').onchange = $('sort').onchange = renderList;
 renderList();
+restore();
