@@ -135,7 +135,7 @@ function select(s) {
   mark(s.id);
   const p = plan[s.id] ??= fresh();
   const tbl = (fxs, labels) => `<div class="scroll"><table><thead><tr><th>Level</th>${labels.map((l) => `<th>${l}</th>`).join('')}</tr></thead><tbody>${fxs.map((e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
-    ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="${labels.length}" class="c">${e.v[0]}</td>`}</tr>`).join('')}</tbody></table></div>`;
+    ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="${labels.length}" class="c">${e.v[0]}${e.v[0] === '—' ? '' : ' <small>at every level</small>'}</td>`}</tr>`).join('')}</tbody></table></div>`;
   const levels = Array.from({ length: 10 }, (_, n) => n + 1);
   const skill = (k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b>
     ${k.cd ? `<small> · CD ${k.cd[0]}${k.cd[9] !== k.cd[0] ? '→' + k.cd[9] : ''}</small>` : ''}
