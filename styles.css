@@ -33,3 +33,9 @@ thead th { color:var(--mut); font-weight:500; }
 .banner img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 12%; }
 .banner > div { position:relative; width:100%; padding:2.5rem 1.25rem .6rem; background:linear-gradient(transparent, var(--bg)); }
 .banner h2 { margin:0; } .banner small { color:var(--fg); opacity:.8; }
+nav { display:flex; gap:.25rem; }
+nav button { font:inherit; padding:.35rem .75rem; color:inherit; background:none; border:1px solid var(--line); border-radius:6px; cursor:pointer; }
+nav button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+.deck { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.3rem; }
+.deck span { border:1px solid var(--line); border-radius:4px; padding:.15rem .6rem; }
+.ce-skill { margin:.5rem 0 1rem; } .ce-skill ul { margin:.1rem 0 .5rem; padding-left:1.2rem; }
