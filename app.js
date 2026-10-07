@@ -4,7 +4,10 @@ const fmt = (n) => n.toLocaleString('en');
 let mode = 'svt', ces; // ces se descarga al abrir la pestaña
 const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
 
-$('cls').append(...[...new Set(servants.map((s) => s.cls))].sort().map((c) => new Option(c, c)));
+// Todas las variantes de Beast (beastEresh, unBeastOlgaMarie…) entran en una sola categoría.
+const group = (c) => (/^(beast|unBeast)/.test(c) ? 'beast' : c);
+
+$('cls').append(...[...new Set(servants.map((s) => group(s.cls)))].sort().map((c) => new Option(c, c)));
 
 // Marco por rareza (1 bronce, 2 plata, 3 oro) e icono de clase de Atlas; Beast Eresh (38) no tiene icono propio.
 const tier = (s) => (s.rarity <= 2 ? 1 : s.rarity === 3 ? 2 : 3);
@@ -15,7 +18,7 @@ const renderList = () => {
   const dir = $('sort').value === 'new' ? -1 : 1;
   const svt = mode === 'svt';
   $('list').replaceChildren(...(svt ? servants : ces).toSorted((a, b) => dir * (a.no - b.no))
-    .filter((s) => (!svt || !c || s.cls === c) && (r === '' || s.rarity === +r) && (!svt || !cd || s.np?.card === cd)
+    .filter((s) => (!svt || !c || group(s.cls) === c) && (r === '' || s.rarity === +r) && (!svt || !cd || s.np?.card === cd)
       && s.name.toLowerCase().includes(q))
     .map((s) => {
       const li = document.createElement('li');
