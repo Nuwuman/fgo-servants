@@ -22,7 +22,7 @@ const LABEL = { gainNp: 'NP Charge', gainStar: 'Gain Critical Stars', gainHp: 'R
   gainNpFromTargets: 'NP Drain', gainNpIndividualSum: 'NP Charge', gainNpBuffIndividualSum: 'NP Charge',
   gainNpTargetSum: 'NP Charge', gainMultiplyNp: 'NP Multiply', absorbNpturn: 'Charge Drain', moveState: 'Effect Transfer' };
 const SKIP = /^(eventDropUp|eventPointUp|servantFriendshipUp|none|displayBuffstring|transformServant)/;
-const FLAT = new Set(['guts', 'regainStar', 'regainHp', 'upChagetd', 'addMaxhp', 'subSelfdamage', 'reduceHp', 'upFuncHpReduce', 'addIndividuality', 'fieldIndividuality']);
+const FLAT = new Set(['guts', 'regainStar', 'regainHp', 'upChagetd', 'addMaxhp', 'subSelfdamage', 'reduceHp', 'upFuncHpReduce', 'addIndividuality', 'fieldIndividuality', 'shortenSkillAfterUseSkill']);
 const NO_VALUE = new Set(['hastenNpturn', 'delayNpturn', 'shortenSkill', 'gainStar', 'gainHp', 'lossHpSafe', 'lossStar', 'cardReset']);
 const JP = /[぀-ヿ一-鿿]/;
 const num = (x) => String(Math.round(x * 10) / 10);
@@ -49,6 +49,16 @@ const latest = (list = [], pick) => Object.values(
   list.reduce((acc, s) => ((!acc[s.num] || acc[s.num].priority <= s.priority) && (acc[s.num] = s), acc), {})
 ).map(pick);
 
+const skillOf = (k) => ({ name: k.name, icon: k.icon, cd: k.coolDown?.[0] ? k.coolDown : undefined,
+  fx: k.functions.filter((f) => !SKIP.test(f.funcType) && f.svals?.length).map(effect) });
+
+// Las append skills son casi idénticas entre servants: se guardan una vez y cada servant lleva índices.
+const appendSkills = [];
+const appendRef = (k) => {
+  const json = JSON.stringify(skillOf(k)), i = appendSkills.findIndex((x) => JSON.stringify(x) === json);
+  return i >= 0 ? i : appendSkills.push(JSON.parse(json)) - 1;
+};
+
 const servants = raw
   .filter((s) => s.collectionNo > 0 && PLAYABLE.has(s.type))
   .map((s) => ({
@@ -58,12 +68,14 @@ const servants = raw
     cls: s.className,
     rarity: s.rarity,
     face: s.extraAssets?.faces?.ascension?.['1'] ?? s.extraAssets?.faces?.ascension?.['0'],
-    skills: latest(s.skills, (k) => ({ name: k.name, icon: k.icon, cd: k.coolDown, fx: k.functions.filter((f) => !SKIP.test(f.funcType) && f.svals?.length).map(effect) })),
+    skills: latest(s.skills, skillOf),
+    passives: s.classPassive.map(skillOf),
+    ap: s.appendPassive.map((p) => appendRef(p.skill)),
     asc: steps(s.ascensionMaterials),
     skill: steps(s.skillMaterials),
     append: steps(s.appendSkillMaterials),
   }))
   .sort((a, b) => a.no - b.no);
 
-writeFileSync('data/servants.json', JSON.stringify({ items, servants }));
-console.log(`${servants.length} servants, ${Object.keys(items).length} items`);
+writeFileSync('data/servants.json', JSON.stringify({ items, appendSkills, servants }));
+console.log(`${servants.length} servants, ${Object.keys(items).length} items, ${appendSkills.length} append variants`);

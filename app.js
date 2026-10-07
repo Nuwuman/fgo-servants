@@ -1,4 +1,4 @@
-const { items, servants } = await (await fetch('data/servants.json')).json();
+const { items, appendSkills, servants } = await (await fetch('data/servants.json')).json();
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString('en');
 const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
@@ -38,11 +38,15 @@ function select(s) {
   document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
   const p = plan[s.id] ??= { asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
   const lv = Array.from({ length: 10 }, (_, n) => `<th>${n + 1}</th>`).join('');
-  const fx = (e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
+  const card = (n) => (/Buster/.test(n) ? 'b' : /Arts/.test(n) ? 'a' : /Quick/.test(n) ? 'q' : '');
+  const fx = (e) => `<tr><td class="${card(e.n)}">${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
     ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="10" class="c">${e.v[0]}</td>`}</tr>`;
-  const sk = s.skills.map((k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b>
-    <small> · CD ${k.cd[0]}${k.cd[9] !== k.cd[0] ? '→' + k.cd[9] : ''}</small>
-    <div class="scroll"><table><thead><tr><th>Level</th>${lv}</tr></thead><tbody>${k.fx.map(fx).join('')}</tbody></table></div></div></div>`).join('');
+  const skill = (k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b>
+    ${k.cd ? `<small> · CD ${k.cd[0]}${k.cd[9] !== k.cd[0] ? '→' + k.cd[9] : ''}</small>` : ''}
+    <div class="scroll"><table><thead><tr><th>Level</th>${lv}</tr></thead><tbody>${k.fx.map(fx).join('')}</tbody></table></div></div></div>`;
+  const sk = s.skills.map(skill).join('');
+  const pas = s.passives.map(skill).join('');
+  const app = s.ap.map((i) => skill(appendSkills[i])).join('');
   const rows = [
     ['Ascension', 'asc', 4, 0],
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
@@ -50,6 +54,8 @@ function select(s) {
   $('detail').innerHTML = `
     <h2>${s.name}</h2><small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small>
     <h3>Skills</h3>${sk}
+    <h3>Class passives</h3>${pas}
+    <h3>Append skills</h3>${app}
     <h3>Upgrade range</h3>${rows}
     <div class="row"><label>Append skills</label>${range('ap', 10, 1, p.ap)} × <input data-k="ap" data-p="2" type="number" min="0" max="5" value="${p.ap[2]}" style="width:3.5rem"></div>
     <h3>Total materials</h3><div id="total" class="total"></div>`;
