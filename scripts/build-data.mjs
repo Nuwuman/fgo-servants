@@ -66,6 +66,7 @@ const servants = raw
     no: s.collectionNo,
     name: s.name,
     cls: s.className,
+    cid: s.classId,
     rarity: s.rarity,
     face: s.extraAssets?.faces?.ascension?.['1'] ?? s.extraAssets?.faces?.ascension?.['0'],
     art: s.extraAssets?.charaGraph?.ascension?.['1'],

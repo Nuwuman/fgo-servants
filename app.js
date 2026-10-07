@@ -5,6 +5,10 @@ const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
 
 $('cls').append(...[...new Set(servants.map((s) => s.cls))].sort().map((c) => new Option(c, c)));
 
+// Marco por rareza (1 bronce, 2 plata, 3 oro) e icono de clase de Atlas; Beast Eresh (38) no tiene icono propio.
+const tier = (s) => (s.rarity <= 2 ? 1 : s.rarity === 3 ? 2 : 3);
+const clsIcon = (s) => `https://static.atlasacademy.io/JP/ClassIcons/class${tier(s)}_${s.cid === 38 ? 33 : s.cid}.png`;
+
 const renderList = () => {
   const q = $('q').value.toLowerCase(), c = $('cls').value;
   const dir = $('sort').value === 'new' ? -1 : 1;
@@ -13,7 +17,7 @@ const renderList = () => {
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
-      li.innerHTML = `<img loading="lazy" src="${s.face}" alt=""><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
+      li.innerHTML = `<span class="ic t${tier(s)}"><img loading="lazy" src="${s.face}" alt=""><img class="cls" loading="lazy" src="${clsIcon(s)}" alt=""></span><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)} ${s.cls}</small></div>`;
       li.onclick = () => select(s);
       return li;
     }));
