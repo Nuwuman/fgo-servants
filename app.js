@@ -38,8 +38,7 @@ function select(s) {
   document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
   const p = plan[s.id] ??= { asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
   const lv = Array.from({ length: 10 }, (_, n) => `<th>${n + 1}</th>`).join('');
-  const card = (n) => (/Buster/.test(n) ? 'b' : /Arts/.test(n) ? 'a' : /Quick/.test(n) ? 'q' : '');
-  const fx = (e) => `<tr><td class="${card(e.n)}">${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
+  const fx = (e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
     ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="10" class="c">${e.v[0]}</td>`}</tr>`;
   const skill = (k) => `<div class="skill"><img src="${k.icon}" alt=""><div><b>${k.name}</b>
     ${k.cd ? `<small> · CD ${k.cd[0]}${k.cd[9] !== k.cd[0] ? '→' + k.cd[9] : ''}</small>` : ''}
