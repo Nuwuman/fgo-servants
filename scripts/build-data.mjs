@@ -10,8 +10,11 @@ const items = {};
 // Coste de gríal por rareza: [[qp, nivel máx. añadido acumulado], ...]. Atlas no lo publica; viene de los datos de Chaldea.
 const grailRaw = (await (await fetch('https://raw.githubusercontent.com/chaldea-center/chaldea-data/main/dist/constData.json')).json()).svtGrailCost;
 const grail = Object.fromEntries(Object.entries(grailRaw).map(([r, v]) => [r, Object.values(v).map((x) => [x.qp, x.addLvMax])]));
-const g = await (await fetch('https://api.atlasacademy.io/nice/JP/item/7999?lang=en')).json();
-items[g.id] = { name: g.name, icon: g.icon };
+// QP (1) y Holy Grail (7999) no salen de los materiales de servant.
+for (const id of [1, 7999]) {
+  const it = await (await fetch(`https://api.atlasacademy.io/nice/JP/item/${id}?lang=en`)).json();
+  items[id] = { name: it.name, icon: it.icon };
+}
 
 // Curvas de EXP acumulada: se guardan una vez y cada servant lleva el índice.
 const expCurves = [];

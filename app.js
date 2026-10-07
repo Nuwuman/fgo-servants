@@ -1,7 +1,7 @@
 const { items, appendSkills, expCurves, grail, servants } = await (await fetch('data/servants.json')).json();
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n.toLocaleString('en');
-let mode = 'svt', ces; // ces se descarga al abrir la pestaña
+let mode = 'svt', ces, curId; // ces se descarga al abrir la pestaña; curId = elemento abierto
 const plan = {}; // por servant.id: { asc:[a,b], s0:[a,b], s1, s2, ap:[a,b,n] }
 
 // Todas las variantes de Beast (beastEresh, unBeastOlgaMarie…) entran en una sola categoría.
@@ -13,6 +13,13 @@ $('cls').append(...[...new Set(servants.map((s) => group(s.cls)))].sort().map((c
 const tier = (s) => (s.rarity <= 2 ? 1 : s.rarity === 3 ? 2 : 3);
 const clsIcon = (s) => `https://static.atlasacademy.io/JP/ClassIcons/class${tier(s)}_${s.cid === 38 ? 33 : s.cid}.png`;
 
+const rows = () => (mode === 'svt' ? servants : ces);
+const mark = (id) => {
+  curId = id;
+  $('list').querySelector('.on')?.classList.remove('on');
+  $('list').querySelector(`[data-id="${id}"]`)?.classList.add('on');
+};
+
 const renderList = () => {
   const q = $('q').value.toLowerCase(), c = $('cls').value, r = $('rar').value, cd = $('card').value;
   const dir = $('sort').value === 'new' ? -1 : 1;
@@ -23,15 +30,26 @@ const renderList = () => {
     .map((s) => {
       const li = document.createElement('li');
       li.dataset.id = s.id;
+      li.tabIndex = 0;
+      li.classList.toggle('on', s.id === curId);
       li.innerHTML = `<span class="ic t${tier(s)}"><img loading="lazy" src="${s.face}" alt="">${svt ? `<img class="cls" loading="lazy" src="${clsIcon(s)}" alt="">` : ''}</span><div>${s.name}<small>No. ${s.no} · ${'★'.repeat(s.rarity)}</small></div>`;
-      li.onclick = () => (svt ? select(s) : selectCe(s));
       return li;
     }));
 };
 
+// Un solo manejador para toda la lista (hasta 2.706 filas); Enter/Espacio abren la fila enfocada.
+const pick = (e) => {
+  const li = e.target.closest('li');
+  const s = li && rows().find((x) => x.id === +li.dataset.id);
+  if (s) (mode === 'svt' ? select(s) : selectCe(s));
+};
+$('list').onclick = pick;
+$('list').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } };
+
 document.querySelectorAll('nav button').forEach((btn) => {
   btn.onclick = async () => {
     mode = btn.dataset.m;
+    curId = undefined;
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b === btn));
     $('cls').hidden = $('card').hidden = mode !== 'svt';
     $('detail').innerHTML = '<p class="hint">Loading…</p>';
@@ -43,7 +61,7 @@ document.querySelectorAll('nav button').forEach((btn) => {
 
 const fxLine = (e) => `<li>${e.n}: <b>${e.v.length > 1 ? e.v.join(' / ') : e.v[0]}</b><small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></li>`;
 function selectCe(e) {
-  document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === e.id));
+  mark(e.id);
   const sk = e.sk.map((k) => `<div class="ce-skill"><b>${k.name}</b>
     <div><small>${k.max ? 'Base' : 'Effect'}</small><ul>${k.base.map(fxLine).join('')}</ul></div>
     ${k.max ? `<div><small>Max limit break</small><ul>${k.max.map(fxLine).join('')}</ul></div>` : ''}</div>`).join('');
@@ -72,7 +90,7 @@ const range = (name, max, min, [a, b]) => {
 };
 
 function select(s) {
-  document.querySelectorAll('#list li').forEach((li) => li.classList.toggle('on', +li.dataset.id === s.id));
+  mark(s.id);
   const p = plan[s.id] ??= { lv: [1, 1], asc: [0, 0], s0: [1, 1], s1: [1, 1], s2: [1, 1], ap: [1, 1, 1] };
   const tbl = (fxs, labels) => `<div class="scroll"><table><thead><tr><th>Level</th>${labels.map((l) => `<th>${l}</th>`).join('')}</tr></thead><tbody>${fxs.map((e) => `<tr><td>${e.n}<small> · ${e.tg}${e.t ? ' · ' + e.t : ''}</small></td>${e.v.length > 1
     ? e.v.map((v) => `<td>${v}</td>`).join('') : `<td colspan="${labels.length}" class="c">${e.v[0]}</td>`}</tr>`).join('')}</tbody></table></div>`;
@@ -88,7 +106,7 @@ function select(s) {
   const app = s.ap.map((i) => skill(appendSkills[i])).join('');
   const rows = [
     ['Level', 'lv', s.lvs.at(-1)[0], 1],
-    ['Ascension', 'asc', 4, 0],
+    ...(s.asc.length ? [['Ascension', 'asc', 4, 0]] : []),
     ...s.skills.map((k, n) => [`Skill ${n + 1}`, `s${n}`, 10, 1]),
   ].map(([label, key, max, min]) => `<div class="row"><label>${label}</label>${range(key, max, min, p[key])}</div>`).join('');
   $('detail').innerHTML = `
@@ -122,9 +140,11 @@ function update(s, p) {
   const cells = Object.entries(acc.i).sort((a, b) => b[1] - a[1])
     .map(([id, n]) => `<div><img src="${items[id].icon}" alt=""><span>${items[id].name} ×${fmt(n)}</span></div>`);
   if (exp) cells.unshift(`<div><span>EXP ×${fmt(exp)}</span></div>`);
-  if (acc.qp) cells.unshift(`<div><img src="https://static.atlasacademy.io/JP/Items/5.png" alt=""><span>QP ×${fmt(acc.qp)}</span></div>`);
+  if (acc.qp) cells.unshift(`<div><img src="${items[1].icon}" alt=""><span>QP ×${fmt(acc.qp)}</span></div>`);
   $('total').innerHTML = cells.join('') || '<span class="hint">Nothing selected.</span>';
 }
 
-$('q').oninput = $('cls').onchange = $('rar').onchange = $('card').onchange = $('sort').onchange = renderList;
+let t;
+$('q').oninput = () => { clearTimeout(t); t = setTimeout(renderList, 120); };
+$('cls').onchange = $('rar').onchange = $('card').onchange = $('sort').onchange = renderList;
 renderList();

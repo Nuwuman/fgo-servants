@@ -4,17 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FGO Servant Materials</title>
+<meta name="description" content="Fate/Grand Order servants, craft essences and upgrade material calculator (JP server, English names).">
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header>
   <h1>FGO Servant Materials</h1>
   <nav><button data-m="svt" class="on">Servants</button><button data-m="ce">Craft Essences</button></nav>
-  <input id="q" type="search" placeholder="Search servant…" autocomplete="off">
-  <select id="sort"><option value="new">Newest first</option><option value="old">Oldest first</option></select>
-  <select id="rar"><option value="">All rarities</option><option value="5">5★</option><option value="4">4★</option><option value="3">3★</option><option value="2">2★</option><option value="1">1★</option><option value="0">0★</option></select>
-  <select id="card"><option value="">All NP cards</option><option>Arts</option><option>Buster</option><option>Quick</option></select>
-  <select id="cls"><option value="">All classes</option></select>
+  <input id="q" type="search" aria-label="Search" placeholder="Search…" autocomplete="off">
+  <select id="sort" aria-label="Sort order"><option value="new">Newest first</option><option value="old">Oldest first</option></select>
+  <select id="rar" aria-label="Rarity"><option value="">All rarities</option><option value="5">5★</option><option value="4">4★</option><option value="3">3★</option><option value="2">2★</option><option value="1">1★</option><option value="0">0★</option></select>
+  <select id="card" aria-label="NP card type"><option value="">All NP cards</option><option>Arts</option><option>Buster</option><option>Quick</option></select>
+  <select id="cls" aria-label="Class"><option value="">All classes</option></select>
 </header>
 <main>
   <ul id="list"></ul>
